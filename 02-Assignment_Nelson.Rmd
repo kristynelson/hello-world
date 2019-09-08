@@ -1,0 +1,136 @@
+---
+title: "LLO 8200"
+author: "Kristy Nelson"
+date: "9/7/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Assignment 2
+For this assignment we will be using the county-level data set pd.Rdata. Also needed are a variety of libraries.
+
+```{r pd.Rdata}
+
+load(file="pd.Rdata")
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(plotly)
+library(Metrics)
+```
+
+## Calculating the mean of the outcome
+
+I theorize that retail expenditures per capita will be a good indicator of home ownership because expendable income means that there is excess monies in a household. So my first step is to find the mean  of retail spending per capita. Then I will create a variable that ranks the counties by retail spending per capita. Finally, I will note the mean of retail spending per capita with a blue line.
+
+```{r}
+##Unconditional Average
+pd%>%summarize(mean_retail_percap=mean(retail_percap,na.rm=TRUE))
+
+##Unconditional Average as a Predictor
+##This creates another variable in pd.rdata that lists the unconditional mean.
+pd<-pd%>%mutate(mean_retail_percap=mean(retail_percap,na.rm=TRUE))
+
+## Create a rank variable for retail per capita
+pd<-pd%>%mutate(retailpc_rank=rank(retail_percap))
+
+##Plotting
+gg<-ggplot(data=pd,aes(y=retail_percap,x=retailpc_rank,color="Actual"))
+gg<-gg+geom_point(alpha=.5,size=.5)
+gg<-gg+geom_point(aes(y=mean_retail_percap,x=retailpc_rank,
+                  color="Predicted: Unconditional Mean"),
+                  size=.5)
+gg<-gg+xlab("Rank of Retail Expenditures Per Capita")+ylab("Retail Expenditures Per Capita")
+gg<-gg+scale_color_manual(name="Type",
+                          values=c("Actual"="black",
+                          "Predicted: Unconditional Mean"="blue")
+                          )
+gg<-gg+theme(legend.position="bottom")
+
+gg
+
+##Save for later
+
+gg2<-gg
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Finding the RMSE
+
+To find out how poor of a predictor the unconditional mean is, we will find the root standard mean error to compare the actual retail expenditure per capita to the mean retail expenditure per capita. We first square the error in order to to remove the negative numbers from the equation.
+
+```{r error_terms}
+##This provides the error so that we may square it in the calculation.
+pd<-pd%>%mutate(e1=retail_percap-mean_retail_percap)
+
+## RMSE
+
+rmse_uncond_mean<-rmse(pd$retail_percap,pd$mean_retail_percap)
+
+rmse_uncond_mean
+```
+
+This means we are off by `r round(rmse_uncond_mean,2)`.
+
+## Using Conditional Variables as Predictors
+
+Now, I will use retail expenditures per capita as a conditional variable to predict home ownership by county.
+
+```{r condtl_mean_single}
+##Condtional Average across a single variable
+
+## Create a variable for quartiles of retail spending per capita
+pd<-pd%>%mutate(retail_percap_pc=ntile(retail_percap,4))
+
+pd%>%select(county,retail_percap, retail_percap_pc)%>%View()
+
+table(pd$retail_percap_pc)
+
+##pd<-pd%>%mutate(retail_percap_pc=ntile(retail_percap,4))
+
+pd<-pd%>%group_by(retail_percap_pc)%>% ## Group by predictor
+  ##Calculate mean home ownership rate at each level of retail spending
+  mutate(pred_home_retail=mean(homeown_rate))%>%
+  ## Ungroup
+  ungroup()%>% 
+  #Rank by prediction, with ties sorted randomly
+  mutate(pred_home_retail_rank=rank(pred_home_retail,ties.method="random"))
+
+pd%>%select(county,retail_percap, retail_percap_pc,pred_home_retail)%>%View()
+ 
+
+```
+
+## Plotting the conditional variable
+
+We can plot this similar to how it was plotted as an unconditional variable:
+
+```{r}
+pd%>%group_by(retail_percap_pc)%>% ## Group by level of retail spending per capita
+  ##Calculate mean at each level of predictor
+  summarise(pred_home_retail=mean(homeown_rate))
+
+gg<-ggplot(data=pd,aes(x=pred_home_retail_rank,y=pd$homeown_rate,color="Actual"))
+gg<-gg+geom_point(alpha=.5,size=.5)
+gg<-gg+geom_point(aes(x=pd$pred_home_retail_rank,y=pd$pred_home_retail,color="Predicted:Conditional Mean, 1 var"))
+gg<-gg+ scale_color_manual("Type",values=c("Predicted:Conditional Mean, 1 var"="red","Actual"="black"))
+gg<-gg+theme(legend.position="bottom")
+gg<-gg+xlab("Rank")+ylab("Retail Expenditure Per Capita")
+gg
+
+##Save for later
+gg3<-gg
+
+```
+
+## RMSE for Conditional Data
+
+We can use the RMSE to test model performance. A low RMSE indicates accuracy.
+```{r}
+rmse_cond_mean_one<-rmse(pd$homeown_rate,pd$pred_home_retail)
+rmse_cond_mean_one
+```

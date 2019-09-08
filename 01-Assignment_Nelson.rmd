@@ -1,0 +1,100 @@
+---
+title: "01-assignment_Nelson.rmd"
+author: "Kristy Nelson"
+date: "9/7/2019"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+load(file="college.RData")
+```
+
+# Assignment 1 LLO 8200
+##Hello, World
+
+This is our first assignment for LLO8200, where we are introduced to creating programs that perform certain functions. The folowing is a script that will allow us to produce the phrase "Hello, World!"
+
+```{r}
+print("Hello, World!")
+```
+
+## Summarization of Data
+
+Using the college.Rdata data set, I will summarize different variables using the pipe script to filter the necessary darta. First, let's look at the average earnings of graduates from the most selective colleges versus those from the least select colleges. 
+
+```{r}
+sc%>%filter(adm_rate<.1, md_earn_wne_p6)%>%select(instnm, adm_rate, md_earn_wne_p6)%>%arrange(adm_rate)
+sc%>%filter(adm_rate>.39, md_earn_wne_p6)%>%select(instnm, adm_rate, md_earn_wne_p6)%>%arrange(-adm_rate)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+We see that, among universities with the top five most competitive admissions, the most exclusive admissions belongs to Julliard which also has the lowest median graduate income. Yale University has the most "lenient admissions" in the Top 5, while Harvard has the highest median graduate income six years after graduation.
+
+Among colleges with the most lenient admissions (>39%), the most lenient admissions rate is found at Stony Brook University (39.92%), which has a median average income of 42,800 six years after graduation. Among universities with a high admittance rate (>39%), Universidad Central Del Caribe has the lowest median income at $28,500.
+
+## Comparing Size of Universities
+
+In order to compare the size of the university, we must find the average university size and add it as a variable to the existing data. We do this by:
+
+```{r}
+sc<-sc%>%mutate(ugdsave=mean(ugds, na.rm=TRUE))
+```
+
+Then, we add a variable to the data that denotes the difference between the size of the school and the average size of univerisities on the list.
+```{r}
+sc<-sc%>%mutate(sizediff=(ugds-ugdsave))
+```
+
+Now we are ready to compare the sizes of schools with higher and lower SAT scores.
+
+```{r}
+sc%>%filter(sat_avg>1450)%>%select(instnm, sat_avg, ugds, sizediff)%>%arrange(-sat_avg)
+sc%>%filter(sat_avg<850)%>%select(instnm, sat_avg, ugds, sizediff)%>%arrange(-sat_avg)
+
+```
+
+Results show that only the university with the very highest average SAT score (California Institute of Technology) has a population significantly lower than the average among the most selective universities according to sAT score. The least selective universities had student populations that were much smaller than the average.
+
+##Relationship between cost and debt
+
+To create a plot, we must decide which is the x and which is the y axis.
+
+```{r}
+scplot<-ggplot(data=sc, aes(x=costt4_a, y=debt_mdn, text=instnm))
+scplot<-scplot+geom_point(alpha=.5, size=.5)
+scplot<-scplot+xlab("Cost")+ylab("Debt")
+scplot<-ggplotly(scplot)
+scplot
+```
+
+The results of this plot show that the most selective schools, while more expensive, actually have the least debt associated with them.
+
+##Plotting by Control
+
+Now we will take the data and delineateit by control.
+
+```{r}
+sccost<-ggplot(data=sc, aes(x=costt4_a, y=control, text=instnm))
+sccost<-sccost+geom_point(alpha=.5, size=.5)
+sccost<-sccost+xlab("Cost")+ylab("Control")
+sccost<-ggplotly(sccost)
+sccost
+```
+
+We can do the same for debt.
+
+```{r}
+scdebt<-ggplot(data=sc, aes(x=debt_mdn, y=control, text=instnm))
+scdebt<-scdebt+geom_point(alpha=.5, size=.5)
+scdebt<-scdebt+xlab("Debt")+ylab("Control")
+scdebt<-ggplotly(scdebt)
+scdebt
+```
+
